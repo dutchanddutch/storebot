@@ -338,10 +338,18 @@ const createStore = function({ initialState, initialListeners = [], log = consol
             throw new Error( `Could not remove listener for "${listenerConfig.path}". ${err.message}` )
         }
     }
+    const updateValue = function( path, value ) {
+        const state = set( clone( cachedState ), path, value );
+        state.lastChange = {
+            request: {
+                path, value
+            }
+        };
+        return updateState( state, false );
+    }
 
     const updateState       = function( state, forceRemap )
     {
-
         // log.info( '\nupdateState:')
         // console.log( JSON.stringify( state, null, 2 ) )
 
@@ -383,11 +391,12 @@ const createStore = function({ initialState, initialListeners = [], log = consol
 
 
     return {
-        addListener
-        ,   removeListener
-        ,   updateState
-        ,   remapCurrentListeners
-        , 	get cachedState()
+        addListener,
+        removeListener,
+        updateState,
+        updateValue,
+        remapCurrentListeners,
+        get cachedState()
         {
             return JSON.parse( JSON.stringify( cachedState ))
         }

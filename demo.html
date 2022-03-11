@@ -1,0 +1,44 @@
+<html>
+  <head>
+    <script src="storebot.min.js" type="module"></script>
+  </head>
+  <body>
+    <h1 id="name-label"></h1>
+    <br />
+    <input id="name-input" />
+  </body>
+
+  <script type="module">
+
+    import StoreBot from './storebot.min.js';
+
+    const updateName = function( stateUpdate )  {
+        console.log('state update', stateUpdate );
+        document.getElementById( 'name-label' ).innerText = stateUpdate['person.name'];
+    }
+
+    const store = StoreBot.createStore({
+        initialState: {
+            data: {
+                person: {
+                    name: "Zelensky",
+                    nationality: "Ukrainian"
+                }
+            }
+        },
+        initialListeners: [
+            {
+                path: 'person.name',
+                handler: updateName
+            }
+        ]
+    });
+
+    const inputField = document.getElementById( 'name-input' );
+
+    inputField.addEventListener( 'keyup', function( event ) {
+        store.updateValue( 'person.name', inputField.value );
+    });
+
+  </script>
+</html>
