@@ -1,0 +1,23 @@
+{
+  "name": "storebot",
+  "version": "1.0.0",
+  "description": "Store with precompiled update handlers for reactive applications",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dutchanddutch/storebot.git"
+  },
+  "keywords": [
+    "store",
+    "reactive"
+  ],
+  "author": "Kevin Kleine",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dutchanddutch/storebot/issues"
+  },
+  "homepage": "https://github.com/dutchanddutch/storebot#readme"
+}
