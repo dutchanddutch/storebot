@@ -1,6 +1,6 @@
 {
   "name": "storebot",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Store with precompiled update handlers for reactive applications",
   "main": "index.js",
