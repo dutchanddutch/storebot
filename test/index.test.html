@@ -1,491 +1,589 @@
 <!DOCTYPE html>
 <html lang="en">
 
-  <head>
+<head>
     <meta charset="utf-8" />
     <title>Storebot test</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
-    <link rel="icon" href="data:;base64,iVBORw0KGgo="> <!-- remove favicon error -->
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=" />
+    <!-- remove favicon error -->
     <link rel="stylesheet" href="../node_modules/mocha/mocha.css" />
-  </head>
+</head>
 
-  <body>
+<body>
     <div id="mocha"></div>
 
     <script src="../node_modules/mocha/mocha.js"></script>
     <script src="../node_modules/chai/chai.js"></script>
 
     <script type="module">
-
-      import * as _ from '../node_modules/lodash-es/lodash.js'
-
-      import StoreBot from '../index.js';
-      const { createStore } = StoreBot;
-      
-      console.log( createStore );
-
-      mocha.setup('bdd');
-
-      const { expect } = chai;
-
-      describe('StoreBot', function () {
-
-          this.timeout(3 * 1000);
-
-          it('can instantiate a store', async () => {
-              const store = createStore(
-                  {
-                      initialState: { test: 10 },
-                      initialListeners: [],
-                      noValueDefault: 'no value'
-                  });
-
-              console.log( store );
-
-              expect(store).to.be.an('object');
-          });
-      });
-
-
-      const   states              = {
-          nested  : {
-              // data: {
-              l1a:{
-                  l2a: {
-                      l3: {
-                          a: 0
-                          ,   b: 1
-                          ,   c: Math.random()
-                      }
-                  }
-                  ,   l2b: {
-                      alfa: 42
-                      ,   beta: 43
-                      ,   gamma: {
-                          delta: 'little jack horner'
-                      }
-                  }
-              }
-              ,   l1b: [
-                  { x: 1 }
-                  ,   {
-                      y: {
-                          z: 2
-                      }
-                  }
-              ]
-              ,   some: { other: { path: 'swa' } }
-              // }
-          }
-      }
-
-      describe.only( 'StoreBot', function()
-                     {
-                         it( 'can prepListenerObjects', () =>
-                             {
-                                 const listeners = [
-                                     {
-                                         id      : 1
-                                         ,   path    : 'some.other.path'
-                                         ,   handler : () => ''
-                                     }
-                                     ,   {
-                                         id      : 2
-                                         ,   path    : 'l1a.l2a'
-                                         ,   handler : () => ''
-                                     }
-                                     ,   {
-                                         id      : 3
-                                         ,   path    : ''
-                                         ,   handler : () => ''
-                                     }
-                                 ]
-
-                                 const {
-                                     listenableSpace
-                                     ,   listenerObject
-                                 }   = StoreBot.prepListenerObjects( states.nested, listeners, console )
-
-                                 expect( listenableSpace ).to.deep.equal( { root: states.nested } )
-                                 expect( _.get( listenerObject, 'root.some.other.path.%listeners%.1.handler', null )).to.be.a( 'function' )
-                             })
-
-
-                         it.skip( 'prepListenerObjects detects state-incompatible listeners', () =>
-                             {
-                                 const listeners = [
-                                     {
-                                         id      : 1
-                                         ,   path    : 'some.inexistent.path'
-                                         ,   handler : () => ''
-                                     }
-                                 ]
-
-                                 try
-                                 {
-                                     StoreBot.prepListenerObjects( states.nested, listeners, console )
-                                 }
-                                 catch( err )
-                                 {
-                                     // errored as expected
-                                     expect( err.message.toLowerCase() ).to.contain( 'incompatible' )
-                                     return
-                                 }
-                                 throw new Error( 'Should have thrown!' )
-                             })
-
-                         it( 'can create a path<>listener dictionary', () =>
-                             {
-                                 const listeners = [
-                                     {
-                                         id      : 1
-                                         ,   path    : 'some.other.path'
-                                         ,   handler : () => ''
-                                     }
-                                     ,   {
-                                         id      : 2
-                                         ,   path    : 'l1a.l2a'
-                                         ,   handler : () => ''
-                                     }
-                                     ,   {
-                                         id      : 3
-                                         ,   path    : ''
-                                         ,   handler : () => ''
-                                     }
-                                     ,   {
-                                         id      : 4
-                                         ,   path    : ''
-                                         ,   handler : () => ''
-                                     }
-                                 ]
-
-                                 const {
-                                     listenableSpace
-                                     ,   listenerObject
-                                 }   = StoreBot.prepListenerObjects( states.nested, listeners, console )
-
-                                 const dictionary = StoreBot.createPathListenerDictionary(
-                                     listenableSpace
-                                     ,   ''
-                                     ,   listenerObject
-                                     ,   []
-                                 )
-
-                                 const expected = {
-                                     'root.l1a.l2a.l3.a': {
-                                         parents: [ 2 ]
-                                         ,   children: []
-                                     }
-                                     ,   'root.l1b.0.x': {
-                                         parents: [ 3, 4 ]
-                                         ,   children: []
-                                     }
-                                     ,   'root.some': {
-                                         parents: [ 3, 4 ]
-                                         ,   children: [ 1 ]
-                                     }
-                                 }
-                                 // console.log( dictionary )
-                                 for ( let [ p, values ] of Object.entries( expected ) )
-                                 {
-                                     // console.log( 'checking', p, dictionary[ p ].parentListenerSet.listeners )
-                                     expect( dictionary[ p ].parentListenerSet.listeners.map( l => l.id ) ).to.deep.equal( values.parents )
-                                     expect( _.flatten( dictionary[ p ].childListenerSets.map( c => c.listeners.map( l => l.id ) ) ) ).to.deep.equal( values.children )
-                                 }
-                             })
-
-
-                         it ( 'can remap listeners', () =>
-                             {
-                                 const changePath        = 'some.other'
-                                 const changeVal         = { path: 44 }
-
-                                 const reg               = []
-
-                                 const remappedListeners = StoreBot
-                                       .remapListeners(
-                                           { data: states.nested }
-                                           ,   [
-                                               {
-                                                   id      : 1
-                                                   ,   path    : ''
-                                                   ,   handler : val => reg.push( 1 )
-                                               }
-                                               ,   {
-                                                   id      : 2
-                                                   ,   path    : 'some.other.path'
-                                                   ,   handler : val => reg.push( 2 )
-                                               }
-                                               ,   {
-                                                   id      : 3
-                                                   ,   path    : 'l1a.l2a'
-                                                   ,   handler : val => reg.push( 3 )
-                                               }
-                                           ]
-                                           ,    console
-                                       )
-
-                                 const stateCopy         = JSON.parse( JSON.stringify( states.nested ) )
-
-                                 _.set( stateCopy, changePath, changeVal )
-
-                                 _.set( stateCopy, [ 'lastChange', 'request' ], { path: changePath, value: changeVal } )
-
-                                 remappedListeners[ changePath ]( changeVal, stateCopy )
-
-                                 expect( reg ).to.deep.equal( [ 1, 2 ] )
-                             })
-
-                         it ( 'can remap listeners', async () =>
-                             {
-                                 let   reg               = []
-
-                                 const brain             = StoreBot
-                                       .createStore({
-                                           initialState        : { data: states.nested }
-                                           ,   initialListeners    : [
-                                               {
-                                                   id      : 1
-                                                   ,   path    : ''
-                                                   ,   handler : val => reg.push( [ 'root', val ] )
-                                               }
-                                               ,   {
-                                                   id      : 2
-                                                   ,   path    : 'some.other.path.that.doesnt.exist'
-                                                   ,   handler : val =>
-                                                   {
-                                                       // console.log( JSON.stringify( val, null,2))
-                                                       reg.push( [ 'unex', val ] )
-                                                   }
-                                               }
-                                           ]
-                                           ,   console
-                                           ,    noValueDefault: 'huh'
-                                       })
-
-
-                                 const changes       = [
-                                     {
-                                         path    : 'some'
-                                         ,   value   : {}
-                                         ,   expect  : [ 'root' ]
-                                     }
-                                     ,   {
-                                         path    : 'some.other.path.that.doesnt.exist'
-                                         ,   value   : 'henk'
-                                         ,   expect  : [ 'unex' ]
-                                     }
-                                     ,   {
-                                         path    : 'some.other.path'
-                                         ,   value   : {}
-                                         ,   expect  : [ 'root', 'unex' ]
-                                     }
-                                     ,   {
-                                         path    : 'some.other.path'
-                                         ,   value   : { that: { doesnt: { exist: { is: 42 } }}}
-                                         ,   expect  : [ 'root', 'unex' ]
-                                     }
-                                 ]
-
-                                 for ( let change of changes )
-                                 {
-                                     reg = []
-
-                                     // console.log( '\nchange:', change )
-
-                                     const newState = _.set(
-                                         _.set( JSON.parse( JSON.stringify( { data: states.nested } ) ), 'lastChange.request', change )
-                                         ,   'data.' + change.path
-                                         ,   change.value
-                                     )
-
-                                     await brain
-                                         .updateState(
-                                             newState
-                                         )
-
-                                     // console.log( _.flatten( reg.map( r => r[ 0 ] ) ), change.expect )
-
-                                     expect(
-                                         _.flatten( reg.map( r => r[ 0 ] ) )
-                                     ).to.deep.equal( change.expect )
-                                 }
-                             })
-                         describe( 'can be independant of state', async () =>
-                             {
-                                 const clone = o => JSON.parse( JSON.stringify( o ) );
-
-                                 const updateBrain = ( brain, path, value ) => brain.updateState(
-                                     _.set(
-                                         _.set(
-                                             clone( { data: states.nested } ),
-                                             'lastChange.request',
-                                             {
-                                                 path
-                                                 ,    value
-                                             }
-                                         )
-                                         ,   `data.${path}`
-                                         ,   value
-                                     )
-                                 );
-
-                                 describe( 'updateState with a simple value', () => {
-
-                                     const testValue = 'hi';
-                                     const expectedRootValue = _.set( { "": clone( states.nested ) }, '.some.other.path.that.doesnt.exist', testValue );
-                                     const expectedNestedValue = { 'some.other.path.that.doesnt.exist': testValue };
-
-                                     const rootHandler = result => value => {
-                                         expect( value ).to.be.an('object');
-                                         expect( value ).to.deep.equal( expectedRootValue );
-                                         result.push( { handler: 'root', value } )
-                                     };
-                                     const nestedPathHandler = result => value => {
-                                         expect( value ).to.be.an('object');
-                                         expect( value ).to.deep.equal( expectedNestedValue );
-                                         result.push( { handler: 'unex', value } )
-                                     };
-
-                                     it( 'calls the root handler if no handlers are found', async function(){
-                                         const result = [];
-                                         const errorLog = [];
-
-                                         const brain = StoreBot.createStore({
-                                             initialState: {data: states.nested},
-                                             initialListeners: [
-                                                 {
-                                                     path    : ''
-                                                     ,   handler : rootHandler( result )
-                                                 }
-                                             ],
-                                             log: { error: err => errorLog.push( err ), info: () => {}, ...console }
-                                             ,    noValueDefault: '404'
-                                         });
-
-                                         await updateBrain( brain, 'some.other.path.that.doesnt.exist', testValue );
-
-                                         expect( result.length ).to.equal( 1 );
-                                         expect( result[0].handler ).to.equal( 'root' );
-                                         expect( result[0].value ).to.deep.equal( expectedRootValue );
-
-                                         expect( errorLog.length ).to.equal( 0 );
-                                     });
-
-                                     it( 'calls a handler on the change path', async function(){
-                                         const result = [];
-                                         const errorLog = [];
-
-                                         const brain = StoreBot.createStore({
-                                             initialState: {data: states.nested},
-                                             initialListeners: [
-                                                 {
-                                                     path    : ''
-                                                     ,   handler : rootHandler( result )
-                                                 }
-                                                 ,    {
-                                                     path    : 'some.other.path.that.doesnt.exist'
-                                                     ,   handler : nestedPathHandler( result )
-                                                 }
-                                             ],
-                                             log: { error: err => errorLog.push( err ), info: () => {}, ...console }
-                                             ,    noValueDefault: '404'
-                                         });
-
-                                         await updateBrain( brain, 'some.other.path.that.doesnt.exist', testValue );
-
-                                         expect( result.length ).to.equal( 1 );
-                                         expect( result[0].handler ).to.equal( 'unex' );
-                                         expect( result[0].value ).to.deep.equal( expectedNestedValue );
-
-                                         // expect( errorLog.length ).to.equal( 1 );
-                                         // expect( errorLog[0] ).to.include( 'Incompatible state and listener on path' );
-                                     });
-                                 });
-
-                                 describe( 'updateState with an object as value', () => {
-
-                                     const testValue = { is: 42 };
-                                     const expectedRootValue = _.set( { "": clone( states.nested ) }, '.some.other.path.that.doesnt.exist', testValue );
-                                     const expectedNestedValue = { 'some.other.path.that.doesnt.exist': testValue };
-
-                                     const rootHandler = result => value => {
-                                         expect( value ).to.be.an('object');
-                                         expect( value ).to.deep.equal( expectedRootValue );
-                                         result.push( { handler: 'root', value } )
-                                     };
-                                     const nestedPathHandler = result => value => {
-                                         expect( value ).to.be.an('object');
-                                         expect( value ).to.deep.equal( expectedNestedValue );
-                                         result.push( { handler: 'unex', value } )
-                                     };
-
-                                     it( 'calls the root handler if no handlers are found', async function(){
-                                         const result = [];
-                                         const errorLog = [];
-
-                                         const brain = StoreBot.createStore({
-                                             initialState: {data: states.nested},
-                                             initialListeners: [
-                                                 {
-                                                     path    : ''
-                                                     ,   handler : rootHandler( result )
-                                                 }
-                                             ],
-                                             log: { error: err => errorLog.push( err ), info: () => {}, ...console }
-                                             ,    noValueDefault: '404'
-                                         });
-
-                                         await updateBrain( brain, 'some.other.path.that.doesnt', {exist: testValue} );
-
-                                         expect( result.length ).to.equal( 1 );
-                                         expect( result[0].handler ).to.equal( 'root' );
-                                         expect( result[0].value ).to.deep.equal( expectedRootValue );
-                                     });
-                                     it( 'calls the root handler and all handlers that are related', async function(){
-                                         const result = [];
-                                         const errorLog = [];
-
-                                         const brain = StoreBot.createStore({
-                                             initialState: {data: states.nested},
-                                             initialListeners: [
-                                                 {
-                                                     path    : ''
-                                                     ,   handler : rootHandler( result )
-                                                 }
-                                                 ,    {
-                                                     path    : 'some.other.path.that.doesnt.exist'
-                                                     ,   handler : nestedPathHandler( result )
-                                                 }
-                                             ],
-                                             log: { error: err => errorLog.push( err ), info: () => {}, ...console }
-                                             ,    noValueDefault: '404'
-                                         });
-
-                                         await updateBrain( brain, 'some.other.path.that.doesnt', {exist: testValue} );
-
-                                         // console.log( result );
-
-                                         expect( result.length ).to.equal( 2 );
-                                         expect( result[0].handler ).to.equal( 'root' );
-                                         expect( result[0].value ).to.deep.equal( expectedRootValue );
-                                         expect( result[1].handler ).to.equal( 'unex' );
-                                         expect( result[1].value ).to.deep.equal( expectedNestedValue );
-                                         // expect( errorLog.length ).to.equal( 1 );
-                                         // expect( errorLog[0] ).to.include( 'Incompatible state and listener on path' );
-                                     });
-                                 });
-
-                             })
-
-                     })
-
-
-                     </script>
-
-    <script class="mocha-exec"  type="module">
-      mocha.run();
+        import * as _ from '../node_modules/lodash-es/lodash.js'
+
+        import StoreBot from '../index.js'
+        const {createStore} = StoreBot
+
+        console.log(createStore)
+
+        mocha.setup('bdd')
+
+        const {expect} = chai
+
+        describe('StoreBot', function () {
+            this.timeout(3 * 1000)
+
+            it('can instantiate a store', async () => {
+                const store = createStore({
+                    initialState: {test: 10},
+                    initialListeners: [],
+                    noValueDefault: 'no value',
+                })
+
+                console.log(store)
+
+                expect(store).to.be.an('object')
+            })
+        })
+
+        const states = {
+            nested: {
+                // data: {
+                l1a: {
+                    l2a: {
+                        l3: {
+                            a: 0,
+                            b: 1,
+                            c: Math.random(),
+                        },
+                    },
+                    l2b: {
+                        alfa: 42,
+                        beta: 43,
+                        gamma: {
+                            delta: 'little jack horner',
+                        },
+                    },
+                },
+                l1b: [
+                    {x: 1},
+                    {
+                        y: {
+                            z: 2,
+                        },
+                    },
+                ],
+                some: {other: {path: 'swa'}},
+                // }
+            },
+        }
+
+        describe.only('StoreBot', function () {
+            it('can prepListenerObjects', () => {
+                const listeners = [
+                    {
+                        id: 1,
+                        path: 'some.other.path',
+                        handler: () => '',
+                    },
+                    {
+                        id: 2,
+                        path: 'l1a.l2a',
+                        handler: () => '',
+                    },
+                    {
+                        id: 3,
+                        path: '',
+                        handler: () => '',
+                    },
+                ]
+
+                const {listenableSpace, listenerObject} =
+                    StoreBot.prepListenerObjects(
+                        states.nested,
+                        listeners,
+                        console
+                    )
+
+                expect(listenableSpace).to.deep.equal({
+                    root: states.nested,
+                })
+                expect(
+                    _.get(
+                        listenerObject,
+                        'root.some.other.path.%listeners%.1.handler',
+                        null
+                    )
+                ).to.be.a('function')
+            })
+
+            it.skip('prepListenerObjects detects state-incompatible listeners', () => {
+                const listeners = [
+                    {
+                        id: 1,
+                        path: 'some.inexistent.path',
+                        handler: () => '',
+                    },
+                ]
+
+                try {
+                    StoreBot.prepListenerObjects(
+                        states.nested,
+                        listeners,
+                        console
+                    )
+                } catch (err) {
+                    // errored as expected
+                    expect(err.message.toLowerCase()).to.contain(
+                        'incompatible'
+                    )
+                    return
+                }
+                throw new Error('Should have thrown!')
+            })
+
+            it('can create a path<>listener dictionary', () => {
+                const listeners = [
+                    {
+                        id: 1,
+                        path: 'some.other.path',
+                        handler: () => '',
+                    },
+                    {
+                        id: 2,
+                        path: 'l1a.l2a',
+                        handler: () => '',
+                    },
+                    {
+                        id: 3,
+                        path: '',
+                        handler: () => '',
+                    },
+                    {
+                        id: 4,
+                        path: '',
+                        handler: () => '',
+                    },
+                ]
+
+                const {listenableSpace, listenerObject} =
+                    StoreBot.prepListenerObjects(
+                        states.nested,
+                        listeners,
+                        console
+                    )
+
+                const dictionary = StoreBot.createPathListenerDictionary(
+                    listenableSpace,
+                    '',
+                    listenerObject,
+                    []
+                )
+
+                const expected = {
+                    'root.l1a.l2a.l3.a': {
+                        parents: [2],
+                        children: [],
+                    },
+                    'root.l1b.0.x': {
+                        parents: [3, 4],
+                        children: [],
+                    },
+                    'root.some': {
+                        parents: [3, 4],
+                        children: [1],
+                    },
+                }
+                // console.log( dictionary )
+                for (let [p, values] of Object.entries(expected)) {
+                    // console.log( 'checking', p, dictionary[ p ].parentListenerSet.listeners )
+                    expect(
+                        dictionary[p].parentListenerSet.listeners.map(
+                            l => l.id
+                        )
+                    ).to.deep.equal(values.parents)
+                    expect(
+                        _.flatten(
+                            dictionary[p].childListenerSets.map(c =>
+                                c.listeners.map(l => l.id)
+                            )
+                        )
+                    ).to.deep.equal(values.children)
+                }
+            })
+
+            it('can remap listeners', () => {
+                const changePath = 'some.other'
+                const changeVal = {path: 44}
+
+                const reg = []
+
+                const remappedListeners = StoreBot.remapListeners(
+                    {data: states.nested},
+                    [
+                        {
+                            id: 1,
+                            path: '',
+                            handler: val => reg.push(1),
+                        },
+                        {
+                            id: 2,
+                            path: 'some.other.path',
+                            handler: val => reg.push(2),
+                        },
+                        {
+                            id: 3,
+                            path: 'l1a.l2a',
+                            handler: val => reg.push(3),
+                        },
+                    ],
+                    console
+                )
+
+                const stateCopy = JSON.parse(JSON.stringify(states.nested))
+
+                _.set(stateCopy, changePath, changeVal)
+
+                _.set(stateCopy, ['lastChange', 'request'], {
+                    path: changePath,
+                    value: changeVal,
+                })
+
+                remappedListeners[changePath](changeVal, stateCopy)
+
+                expect(reg).to.deep.equal([1, 2])
+            })
+
+            it('can remap listeners', async () => {
+                let reg = []
+
+                const brain = StoreBot.createStore({
+                    initialState: {data: states.nested},
+                    initialListeners: [
+                        {
+                            id: 1,
+                            path: '',
+                            handler: val => reg.push(['root', val]),
+                        },
+                        {
+                            id: 2,
+                            path: 'some.other.path.that.doesnt.exist',
+                            handler: val => {
+                                // console.log( JSON.stringify( val, null,2))
+                                reg.push(['unex', val])
+                            },
+                        },
+                    ],
+                    console,
+                    noValueDefault: 'huh',
+                })
+
+                const changes = [
+                    {
+                        path: 'some',
+                        value: {},
+                        expect: ['root'],
+                    },
+                    {
+                        path: 'some.other.path.that.doesnt.exist',
+                        value: 'henk',
+                        expect: ['unex'],
+                    },
+                    {
+                        path: 'some.other.path',
+                        value: {},
+                        expect: ['root', 'unex'],
+                    },
+                    {
+                        path: 'some.other.path',
+                        value: {that: {doesnt: {exist: {is: 42}}}},
+                        expect: ['root', 'unex'],
+                    },
+                ]
+
+                for (let change of changes) {
+                    reg = []
+
+                    // console.log( '\nchange:', change )
+
+                    const newState = _.set(
+                        _.set(
+                            JSON.parse(
+                                JSON.stringify({data: states.nested})
+                            ),
+                            'lastChange.request',
+                            change
+                        ),
+                        'data.' + change.path,
+                        change.value
+                    )
+
+                    await brain.updateState(newState)
+
+                    // console.log( _.flatten( reg.map( r => r[ 0 ] ) ), change.expect )
+
+                    expect(_.flatten(reg.map(r => r[0]))).to.deep.equal(
+                        change.expect
+                    )
+                }
+            })
+            describe('can be independant of state', async () => {
+                const clone = o => JSON.parse(JSON.stringify(o))
+
+                const updateBrain = (brain, path, value) =>
+                    brain.updateState(
+                        _.set(
+                            _.set(
+                                clone({data: states.nested}),
+                                'lastChange.request',
+                                {
+                                    path,
+                                    value,
+                                }
+                            ),
+                            `data.${path}`,
+                            value
+                        )
+                    )
+
+                describe('updateState with a simple value', () => {
+                    const testValue = 'hi'
+                    const expectedRootValue = _.set(
+                        {'': clone(states.nested)},
+                        '.some.other.path.that.doesnt.exist',
+                        testValue
+                    )
+                    const expectedNestedValue = {
+                        'some.other.path.that.doesnt.exist': testValue,
+                    }
+
+                    const rootHandler = result => value => {
+                        expect(value).to.be.an('object')
+                        expect(value).to.deep.equal(expectedRootValue)
+                        result.push({handler: 'root', value})
+                    }
+                    const nestedPathHandler = result => value => {
+                        expect(value).to.be.an('object')
+                        expect(value).to.deep.equal(expectedNestedValue)
+                        result.push({handler: 'unex', value})
+                    }
+
+                    it('calls the root handler if no handlers are found', async function () {
+                        const result = []
+                        const errorLog = []
+
+                        const brain = StoreBot.createStore({
+                            initialState: {data: states.nested},
+                            initialListeners: [
+                                {
+                                    path: '',
+                                    handler: rootHandler(result),
+                                },
+                            ],
+                            log: {
+                                error: err => errorLog.push(err),
+                                info: () => { },
+                                ...console,
+                            },
+                            noValueDefault: '404',
+                        })
+
+                        await updateBrain(
+                            brain,
+                            'some.other.path.that.doesnt.exist',
+                            testValue
+                        )
+
+                        expect(result.length).to.equal(1)
+                        expect(result[0].handler).to.equal('root')
+                        expect(result[0].value).to.deep.equal(
+                            expectedRootValue
+                        )
+
+                        expect(errorLog.length).to.equal(0)
+                    })
+
+                    it('calls a handler on the change path', async function () {
+                        const result = []
+                        const errorLog = []
+
+                        const brain = StoreBot.createStore({
+                            initialState: {data: states.nested},
+                            initialListeners: [
+                                {
+                                    path: '',
+                                    handler: rootHandler(result),
+                                },
+                                {
+                                    path: 'some.other.path.that.doesnt.exist',
+                                    handler: nestedPathHandler(result),
+                                },
+                            ],
+                            log: {
+                                error: err => errorLog.push(err),
+                                info: () => { },
+                                ...console,
+                            },
+                            noValueDefault: '404',
+                        })
+
+                        await updateBrain(
+                            brain,
+                            'some.other.path.that.doesnt.exist',
+                            testValue
+                        )
+
+                        expect(result.length).to.equal(1)
+                        expect(result[0].handler).to.equal('unex')
+                        expect(result[0].value).to.deep.equal(
+                            expectedNestedValue
+                        )
+
+                        // expect( errorLog.length ).to.equal( 1 );
+                        // expect( errorLog[0] ).to.include( 'Incompatible state and listener on path' );
+                    })
+                })
+
+                describe('updateState with an object as value', () => {
+                    const testValue = {is: 42}
+                    const expectedRootValue = _.set(
+                        {'': clone(states.nested)},
+                        '.some.other.path.that.doesnt.exist',
+                        testValue
+                    )
+                    const expectedNestedValue = {
+                        'some.other.path.that.doesnt.exist': testValue,
+                    }
+
+                    const rootHandler = result => value => {
+                        expect(value).to.be.an('object')
+                        expect(value).to.deep.equal(expectedRootValue)
+                        result.push({handler: 'root', value})
+                    }
+                    const nestedPathHandler = result => value => {
+                        expect(value).to.be.an('object')
+                        expect(value).to.deep.equal(expectedNestedValue)
+                        result.push({handler: 'unex', value})
+                    }
+
+                    it('calls the root handler if no handlers are found', async function () {
+                        const result = []
+                        const errorLog = []
+
+                        const brain = StoreBot.createStore({
+                            initialState: {data: states.nested},
+                            initialListeners: [
+                                {
+                                    path: '',
+                                    handler: rootHandler(result),
+                                },
+                            ],
+                            log: {
+                                error: err => errorLog.push(err),
+                                info: () => { },
+                                ...console,
+                            },
+                            noValueDefault: '404',
+                        })
+
+                        await updateBrain(
+                            brain,
+                            'some.other.path.that.doesnt',
+                            {
+                                exist: testValue,
+                            }
+                        )
+
+                        expect(result.length).to.equal(1)
+                        expect(result[0].handler).to.equal('root')
+                        expect(result[0].value).to.deep.equal(
+                            expectedRootValue
+                        )
+                    })
+                    it('calls the root handler and all handlers that are related', async function () {
+                        const result = []
+                        const errorLog = []
+
+                        const brain = StoreBot.createStore({
+                            initialState: {data: states.nested},
+                            initialListeners: [
+                                {
+                                    path: '',
+                                    handler: rootHandler(result),
+                                },
+                                {
+                                    path: 'some.other.path.that.doesnt.exist',
+                                    handler: nestedPathHandler(result),
+                                },
+                            ],
+                            log: {
+                                error: err => errorLog.push(err),
+                                info: () => { },
+                                ...console,
+                            },
+                            noValueDefault: '404',
+                        })
+
+                        await updateBrain(
+                            brain,
+                            'some.other.path.that.doesnt',
+                            {
+                                exist: testValue,
+                            }
+                        )
+
+                        // console.log( result );
+
+                        expect(result.length).to.equal(2)
+                        expect(result[0].handler).to.equal('root')
+                        expect(result[0].value).to.deep.equal(
+                            expectedRootValue
+                        )
+                        expect(result[1].handler).to.equal('unex')
+                        expect(result[1].value).to.deep.equal(
+                            expectedNestedValue
+                        )
+                        // expect( errorLog.length ).to.equal( 1 );
+                        // expect( errorLog[0] ).to.include( 'Incompatible state and listener on path' );
+                    })
+                })
+            })
+            describe('API', function () {
+                it("Can have a 'sub' API", async function () {
+                    const result = []
+                    const errorLog = []
+
+                    const brain = StoreBot.createStore({
+                        initialState: {data: states.nested},
+                    })
+
+                    let api = brain.createAPI({
+                        getters: [
+                            {name: 'l2a', storePath: ['l1a', 'l2a']},
+                        ],
+                        setters: [
+                            {name: 'l3a', storePath: 'l1a.l2a.l3.a'},
+                        ],
+                        listeners: [],
+                    })
+
+                    let testVal = Math.random()
+
+                    await api.l3a(testVal)
+
+                    // console.log(brain.cachedState)
+
+                    let readVal = api.l2a
+
+                    console.log(readVal)
+
+                    expect(readVal.l3.a).to.equal(testVal)
+                })
+            })
+        })
     </script>
-  </body>
+
+    <script class="mocha-exec" type="module">
+        mocha.run()
+    </script>
+</body>
 
 </html>
